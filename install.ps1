@@ -158,6 +158,9 @@ $lnk.WorkingDirectory = $InstallDir
 $defaultIcon = Join-Path $iconDir 'liangzu.ico'
 if ($iconSetting -ne 'liangzu') { $lnk.IconLocation = $iconSetting + ',0' } else { $lnk.IconLocation = $defaultIcon + ',0' }
 $lnk.Description = 'DeepSeek Harness 系统托盘启动器'
+# 运行方式 = 最小化（7）：Windows Terminal 设为默认终端时，-WindowStyle Hidden 可能被忽略
+# 而闪一下窗口；最小化运行可规避该问题，托盘脚本本身仍是无窗口的。
+$lnk.WindowStyle = 7
 $lnk.Save()
 
 # 配置文件
