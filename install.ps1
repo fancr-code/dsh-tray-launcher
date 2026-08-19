@@ -6,12 +6,14 @@
 #   -Icon <path.ico>   托盘与快捷方式图标（可选；不填用系统默认图标）
 #   -ShortcutName <名> 桌面快捷方式名称（默认 DeepSeek Harness）
 #   -Autostart         同时注册开机自启
+#   -Yes               跳过安装前确认提示（自动化场景）
 #   -DryRun            只检测与打印，不写入任何文件
 param(
     [string]$DshPath = "",
     [string]$Icon = "",
     [string]$ShortcutName = "DeepSeek Harness",
     [switch]$Autostart,
+    [switch]$Yes,
     [switch]$DryRun
 )
 
@@ -90,6 +92,20 @@ if (-not $dshBin) {
 }
 
 if ($DryRun) { Write-Output 'DryRun: 检测完成，未写入任何文件。'; exit 0 }
+
+# ---- 安装前确认 ----
+if (-not $Yes) {
+    Write-Host ''
+    Write-Host '即将执行以下操作：' -ForegroundColor Cyan
+    Write-Host ("  1. 复制脚本与图标到: " + $InstallDir)
+    Write-Host ("  2. 创建桌面快捷方式: " + (Join-Path ([Environment]::GetFolderPath('Desktop')) ($ShortcutName + '.lnk')))
+    if ($Autostart) { Write-Host '  3. 注册开机自启' }
+    $answer = Read-Host '是否继续安装? [Y/n]'
+    if ($answer -and $answer.Trim().ToLower() -notin @('y', 'yes', '是')) {
+        Write-Host '已取消，未写入任何文件。'
+        exit 0
+    }
+}
 
 New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 

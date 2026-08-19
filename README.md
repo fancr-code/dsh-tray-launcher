@@ -69,7 +69,7 @@ npm install -g dsh-tray-launcher
 dsh-tray-install
 ```
 
-安装器会自动检测 dsh 与 node 位置并生成桌面快捷方式（默认梁祖图标）；找不到 dsh 时会提示你粘贴 `bin.js` 路径，也可用 `dsh-tray-install -DshPath "<bin.js 路径>"` 手动指定。
+安装器会自动检测 dsh 与 node 位置，**安装前会列出将执行的操作并询问确认**（回车 = 继续，输入 n 取消）；找不到 dsh 时会提示你粘贴 `bin.js` 路径，也可用 `dsh-tray-install -DshPath "<bin.js 路径>"` 手动指定。自动化场景用 `-Yes` 跳过确认。
 
 之后日常使用：
 
@@ -104,6 +104,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File install.ps1
 | `-Icon <xxx.ico>` | 托盘 + 快捷方式图标；不传使用仓库自带的梁祖图标 |
 | `-ShortcutName <名称>` | 桌面快捷方式名称，默认 `DeepSeek Harness` |
 | `-Autostart` | 同时注册开机自启（复制快捷方式到启动文件夹） |
+| `-Yes` | 跳过安装前的确认提示（自动化场景） |
 | `-DryRun` | 只检测和打印，不写入任何文件 |
 
 示例：
