@@ -58,24 +58,44 @@ function Find-DshBin {
         $binDir = Split-Path $cmd.Source -Parent
         $candidates += (Join-Path (Split-Path $binDir -Parent) '@deepseek-ai\dsh\lib\bin.js')
     }
-    # 2) 当前 npm 的缓存目录（权威来源，兼容自定义/重定向的缓存路径）
-    try {
-        $cache = & npm config get cache 2>$null
-        if ($cache) {
-            $npxDir = Join-Path $cache '_npx'
-            if (Test-Path $npxDir) {
-                $candidates += Get-ChildItem $npxDir -Directory -ErrorAction SilentlyContinue |
-                    ForEach-Object { Join-Path $_.FullName 'node_modules\@deepseek-ai\dsh\lib\bin.js' }
+    # 2) 当前 npm 的缓存目录（纯 PowerShell 探测，绝不执行外部命令：
+    #    无控制台进程执行外部命令会触发 PowerShell 分配可见控制台=黑窗）
+    $cacheDirs = @()
+    if ($env:NPM_CONFIG_CACHE) { $cacheDirs += $env:NPM_CONFIG_CACHE }
+    foreach ($rc in @((Join-Path $env:USERPROFILE '.npmrc'), (Join-Path $env:APPDATA 'npm\etc\npmrc'))) {
+        if (Test-Path $rc) {
+            $m = Select-String -Path $rc -Pattern '^\s*cache\s*=\s*(.+)\s*$' -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($m) {
+                $v = (($m.Lines | Select-Object -First 1) -split '=', 2)[1].Trim()
+                if ($v) { $cacheDirs += $v }
             }
         }
-    } catch {}
-    # 3) npm 全局安装
-    try {
-        $g = & npm root -g 2>$null
+    }
+    $cacheDirs += (Join-Path $env:LOCALAPPDATA 'npm-cache')
+    foreach ($cache in $cacheDirs) {
+        $npxDir = Join-Path $cache '_npx'
+        if (Test-Path $npxDir) {
+            $candidates += Get-ChildItem $npxDir -Directory -ErrorAction SilentlyContinue |
+                ForEach-Object { Join-Path $_.FullName 'node_modules\@deepseek-ai\dsh\lib\bin.js' }
+        }
+    }
+    # 3) npm 全局安装（环境变量 / .npmrc prefix / 默认位置）
+    $globalRoots = @()
+    if ($env:NPM_CONFIG_PREFIX) { $globalRoots += $env:NPM_CONFIG_PREFIX }
+    foreach ($rc in @((Join-Path $env:USERPROFILE '.npmrc'), (Join-Path $env:APPDATA 'npm\etc\npmrc'))) {
+        if (Test-Path $rc) {
+            $m = Select-String -Path $rc -Pattern '^\s*prefix\s*=\s*(.+)\s*$' -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($m) {
+                $v = (($m.Lines | Select-Object -First 1) -split '=', 2)[1].Trim()
+                if ($v) { $globalRoots += $v }
+            }
+        }
+    }
+    $globalRoots += (Join-Path $env:APPDATA 'npm')
+    foreach ($g in $globalRoots) {
         if ($g) { $candidates += (Join-Path $g '@deepseek-ai\dsh\lib\bin.js') }
-    } catch {}
+    }
     # 4) 常见兜底位置
-    $candidates += (Join-Path $env:APPDATA 'npm\node_modules\@deepseek-ai\dsh\lib\bin.js')
     $localNpx = Join-Path $env:LOCALAPPDATA 'npm-cache\_npx'
     if (Test-Path $localNpx) {
         $candidates += Get-ChildItem $localNpx -Directory -ErrorAction SilentlyContinue |
