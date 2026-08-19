@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: transparent;
+    font-family: "Segoe UI", "Microsoft YaHei", -apple-system, sans-serif;
+    width: 520px; height: 440px; position: relative;
+    -webkit-font-smoothing: antialiased;
+  }
+  /* 桌面快捷方式 */
+  .shortcut { position: absolute; top: 28px; left: 32px; display: flex; flex-direction: column; align-items: center; gap: 6px; width: 92px; }
+  .shortcut .ico-wrap { position: relative; }
+  .shortcut img { width: 56px; height: 56px; border-radius: 14px; display: block; }
+  .shortcut .arrow {
+    position: absolute; left: -8px; bottom: -8px; width: 22px; height: 22px;
+    background: #ffffff; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,.5);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .shortcut .arrow::after { content: "↗"; font-size: 13px; color: #1a1f29; font-weight: 700; }
+  .shortcut .name { font-size: 12px; color: #e8ecf4; text-align: center; text-shadow: 0 1px 3px rgba(0,0,0,.6); line-height: 16px; }
+  /* 托盘气泡 */
+  .balloon {
+    position: absolute; right: 24px; bottom: 218px;
+    display: flex; align-items: center; gap: 8px;
+    background: #141a26; border: 1px solid #333d4f; border-radius: 10px;
+    padding: 8px 12px; box-shadow: 0 8px 28px rgba(0,0,0,.55); color: #e8ecf4; font-size: 12px;
+  }
+  .balloon img { width: 20px; height: 20px; border-radius: 5px; }
+  .balloon::after {
+    content: ""; position: absolute; right: 44px; bottom: -7px;
+    width: 12px; height: 12px; background: #141a26; border-right: 1px solid #333d4f; border-bottom: 1px solid #333d4f;
+    transform: rotate(45deg);
+  }
+  /* 右键菜单 */
+  .menu {
+    position: absolute; right: 16px; bottom: 56px; width: 208px;
+    background: #141a26; border: 1px solid #333d4f; border-radius: 10px;
+    box-shadow: 0 10px 32px rgba(0,0,0,.6); padding: 4px; font-size: 13px;
+  }
+  .menu .item { padding: 5px 10px; border-radius: 6px; color: #e8ecf4; }
+  .menu .item.hover { background: #1e2735; }
+  .menu .sep { height: 1px; background: #28303f; margin: 4px 6px; }
+  /* 任务栏 */
+  .taskbar {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 46px;
+    background: #1b212d; border-top: 1px solid #262e3d;
+    display: flex; align-items: center; justify-content: flex-end; padding: 0 14px; gap: 16px;
+  }
+  .taskbar .tray { display: flex; align-items: center; gap: 10px; }
+  .taskbar .tray img { width: 22px; height: 22px; border-radius: 5px; }
+  .taskbar .clock { color: #e8ecf4; font-size: 12px; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+  <div class="shortcut">
+    <div class="ico-wrap">
+      <img src="liangzu-icon.png">
+      <div class="arrow"></div>
+    </div>
+    <div class="name">DeepSeek Harness</div>
+  </div>
+
+  <div class="balloon">
+    <img src="liangzu-icon.png">
+    <span>DeepSeek Harness 正在启动…</span>
+  </div>
+
+  <div class="menu">
+    <div class="item hover">打开界面</div>
+    <div class="item">打开日志</div>
+    <div class="sep"></div>
+    <div class="item">退出</div>
+  </div>
+
+  <div class="taskbar">
+    <div class="tray">
+      <span class="clock">14:32</span>
+      <img src="liangzu-icon.png">
+    </div>
+  </div>
+</body>
+</html>
