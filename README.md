@@ -150,10 +150,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File install.ps1 -Icon D:\icons\l
 
 ## 卸载
 
-1. 托盘右键「退出」（或直接结束托盘进程）
-2. 删除桌面快捷方式（如安装时用了 `-Autostart`，同时删除启动文件夹里的副本）
-3. 删除安装目录 `%LOCALAPPDATA%\Programs\DSHTray\`
-4. npm 方式安装的再执行：`npm uninstall -g dsh-tray-launcher`
+**一键卸载**（本地脚本或远程执行）：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File uninstall.ps1
+```
+
+会自动：结束托盘进程 → 删除桌面快捷方式（含开机自启副本）→ 删除安装目录 `%LOCALAPPDATA%\Programs\DSHTray\`。
+
+npm 方式安装的再执行：`npm uninstall -g dsh-tray-launcher`
 
 ## 常见问题
 

@@ -1,6 +1,6 @@
 {
   "name": "dsh-tray-launcher",
-  "version": "1.1.9",
+  "version": "1.1.10",
   "description": "DeepSeek Harness 的 Windows 桌面托盘启动器：无窗口运行 dsh web，托盘右键切换图标（梁祖/鲸鱼娘/DeepSeek/自定义，托盘与快捷方式同步），退出即全退，一键安装。",
   "license": "MIT",
   "author": "fancr-code",
@@ -12,6 +12,7 @@
   "files": [
     "tray.ps1",
     "install.ps1",
+    "uninstall.ps1",
     "launch.bat",
     "liangzu-icon.ico",
     "icons/liangzu.ico",
