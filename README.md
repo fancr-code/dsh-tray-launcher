@@ -3,6 +3,10 @@
 <p align="center">
   <img src="https://img.shields.io/github/stars/fancr-code/dsh-tray-launcher?style=flat-square" alt="Stars">
   &nbsp;
+  <img src="https://img.shields.io/npm/v/dsh-tray-launcher?style=flat-square" alt="npm">
+  &nbsp;
+  <img src="https://img.shields.io/npm/dm/dsh-tray-launcher?style=flat-square" alt="Downloads">
+  &nbsp;
   <img src="https://img.shields.io/github/license/fancr-code/dsh-tray-launcher?style=flat-square" alt="License">
   &nbsp;
   <img src="https://img.shields.io/github/last-commit/fancr-code/dsh-tray-launcher?style=flat-square" alt="Last Commit">
@@ -67,9 +71,23 @@ DeepSeek Harness（dsh）默认在终端里前台运行 `dsh web`——必须留
 
 - Windows 10 / 11
 - Windows PowerShell 5.1（系统自带，无需安装）
-- 已安装 DeepSeek Harness CLI（`dsh web` 可正常启动）与 Node.js（dsh 自身要求 ≥ 22）
+- 已安装 DeepSeek Harness CLI（`dsh web` 可正常启动）与 Node.js（dsh 自身要求 ≥ 22，安装本工具需要 ≥ 18）
 
-### 一行命令安装（推荐）
+### npm 全局安装（推荐）
+
+```powershell
+npm install -g dsh-tray-launcher
+dsh-tray-install          # 一键安装：生成桌面快捷方式 + 配置 + 默认梁祖图标
+```
+
+之后日常使用：
+
+```powershell
+dsh-tray                  # 启动托盘（无窗口）
+dsh-tray --console        # 控制台模式（日志直出终端）
+```
+
+### 一行命令远程安装
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/fancr-code/dsh-tray-launcher/main/install.ps1 | iex"
@@ -105,14 +123,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File install.ps1 -Icon D:\icons\l
 
 | 操作 | 效果 |
 | --- | --- |
-| 双击桌面快捷方式 | 无窗口启动；托盘出图标 + 气泡；端口就绪自动开浏览器 |
+| `dsh-tray`（或双击桌面快捷方式） | 无窗口启动；托盘出图标 + 气泡；端口就绪自动开浏览器 |
+| `dsh-tray --console`（或双击 `launch.bat`） | 控制台模式，前台运行、日志直出终端 |
 | 双击托盘图标 | 打开界面 |
 | 托盘「打开界面」 | 浏览器打开 Web GUI |
 | 托盘「打开日志」 | 记事本打开 stdout 日志 |
 | 托盘「退出」 | 停止 harness + 关闭托盘（全部退出） |
 | harness 意外退出 | 气泡提示「已停止」并自动收起托盘 |
-
-控制台模式（排查问题）：双击安装目录的 `launch.bat`，前台运行、日志直出窗口，关窗即停。
 
 ## 配置
 
@@ -135,6 +152,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File install.ps1 -Icon D:\icons\l
 1. 托盘右键「退出」（或直接结束托盘进程）
 2. 删除桌面快捷方式（如安装时用了 `-Autostart`，同时删除启动文件夹里的副本）
 3. 删除安装目录 `%LOCALAPPDATA%\Programs\DSHTray\`
+4. npm 方式安装的再执行：`npm uninstall -g dsh-tray-launcher`
 
 ## 常见问题
 

@@ -1,0 +1,37 @@
+{
+  "name": "dsh-tray-launcher",
+  "version": "1.0.0",
+  "description": "DeepSeek Harness 的 Windows 桌面托盘启动器：无窗口运行 dsh web，托盘图标（默认梁祖）管理界面与日志，退出即全退，一键安装。",
+  "license": "MIT",
+  "author": "fancr-code",
+  "type": "module",
+  "bin": {
+    "dsh-tray": "bin/dsh-tray.js",
+    "dsh-tray-install": "bin/dsh-tray-install.js"
+  },
+  "files": [
+    "tray.ps1",
+    "install.ps1",
+    "launch.bat",
+    "liangzu-icon.ico",
+    "bin/dsh-tray.js",
+    "bin/dsh-tray-install.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fancr-code/dsh-tray-launcher.git"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "windows",
+    "system-tray",
+    "launcher",
+    "powershell"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
+}
