@@ -108,6 +108,11 @@ if (-not $bin) {
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
+# 与任何控制台彻底脱钩：即使启动路径误分配了控制台（旧包装器等），也立即释放——
+# 不出现黑窗，且关闭任何窗口都不会带走托盘进程。
+Add-Type -Name K32 -Namespace Win32 -MemberDefinition '[DllImport("kernel32.dll")] public static extern bool FreeConsole();'
+[Win32.K32]::FreeConsole() | Out-Null
+
 $logDir = Join-Path $PSScriptRoot 'logs'
 New-Item -ItemType Directory -Path $logDir -Force | Out-Null
 $outLog  = Join-Path $logDir 'dsh-out.log'
