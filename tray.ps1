@@ -33,14 +33,18 @@ $url = Get-CfgValue 'url' 'http://127.0.0.1:3080'
 $cwd = Get-CfgValue 'cwd' $env:USERPROFILE
 
 # ---- 定位 node.exe ----
+# 优先系统正式安装的 node：codex 等工具链的 node 可能是转发桩，
+# 无窗标志传不到它重新拉起的真实 node 进程，会出现黑窗。
+$script:systemNode = 'C:\Program Files\nodejs\node.exe'
 $node = Get-CfgValue 'node' ''
+if ($node -and $node -match 'codex' -and (Test-Path $script:systemNode)) { $node = $script:systemNode }
 if (-not $node -or -not (Test-Path $node)) {
     $cmdNode = Get-Command node.exe -ErrorAction SilentlyContinue
     if ($cmdNode) { $node = $cmdNode.Source }
+    if ($node -and $node -match 'codex' -and (Test-Path $script:systemNode)) { $node = $script:systemNode }
 }
 if (-not $node -or -not (Test-Path $node)) {
-    $candidate = 'C:\Program Files\nodejs\node.exe'
-    if (Test-Path $candidate) { $node = $candidate }
+    if (Test-Path $script:systemNode) { $node = $script:systemNode }
 }
 
 # ---- 定位 dsh CLI（lib/bin.js）----
@@ -133,6 +137,8 @@ if (-not $createdNew) {
     exit 0
 }
 Write-TrayLog 'tray launcher started'
+Write-TrayLog ('node: ' + $node)
+Write-TrayLog ('dsh bin: ' + $bin)
 
 # ---- 托盘图标与菜单 ----
 $script:PresetIcons = @{

@@ -68,9 +68,15 @@ if ([string]::IsNullOrWhiteSpace($ShortcutName) -or $ShortcutName.Trim() -in @('
 }
 
 $dshBin = Resolve-DshBin
+# 优先系统正式 node（codex 等工具链 node 可能是转发桩，会导致黑窗）
 $nodePath = ''
 $cmdNode = Get-Command node.exe -ErrorAction SilentlyContinue
-if ($cmdNode) { $nodePath = $cmdNode.Source }
+if ($cmdNode -and $cmdNode.Source -notmatch 'codex') { $nodePath = $cmdNode.Source }
+if (-not $nodePath -and (Test-Path 'C:\Program Files\nodejs\node.exe')) { $nodePath = 'C:\Program Files\nodejs\node.exe' }
+if (-not $nodePath -and $cmdNode) { $nodePath = $cmdNode.Source }
+if ($cmdNode -and $cmdNode.Source -match 'codex' -and $nodePath -ne $cmdNode.Source) {
+    Write-Output "注意: 检测到工具链 node ($($cmdNode.Source))，已改用系统 node ($nodePath) 以避免黑窗。"
+}
 if (-not $nodePath -and (Test-Path 'C:\Program Files\nodejs\node.exe')) { $nodePath = 'C:\Program Files\nodejs\node.exe' }
 
 Write-Output "dsh bin : $dshBin"
