@@ -1,7 +1,7 @@
 # dsh-tray-launcher
 
 <p align="center">
-  <img src="https://img.shields.io/github/stars/fancr-code/dsh-tray-launcher?style=flat-square" alt="Stars">
+  <img src="https://img.shields.io/github/stars/fancr-code/dsh-tray-launcher?style=flat-square&cacheSeconds=300" alt="Stars">
   &nbsp;
   <img src="https://img.shields.io/npm/v/dsh-tray-launcher?style=flat-square" alt="npm">
   &nbsp;
