@@ -129,6 +129,10 @@ if (-not $bin) {
 }
 
 # ---- 托盘模式 ----
+$script:TrayVersion = '1.1.9'
+# 版本烙印：控制台标题（若有可见控制台，标题会显示实际运行的版本）与日志
+try { $Host.UI.RawUI.WindowTitle = 'DSH-Tray v' + $script:TrayVersion } catch {}
+
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
@@ -157,6 +161,7 @@ if (-not $createdNew) {
     exit 0
 }
 Write-TrayLog 'tray launcher started'
+Write-TrayLog ('dsh-tray-launcher version: ' + $script:TrayVersion)
 Write-TrayLog ('node: ' + $node)
 Write-TrayLog ('dsh bin: ' + $bin)
 
