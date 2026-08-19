@@ -111,6 +111,10 @@ Write-TrayLog 'tray launcher started'
 
 # ---- 托盘图标与菜单 ----
 $iconPath = Get-CfgValue 'icon' ''
+if (-not $iconPath -or -not (Test-Path $iconPath)) {
+    $bundledIcon = Join-Path $PSScriptRoot 'liangzu-icon.ico'
+    if (Test-Path $bundledIcon) { $iconPath = $bundledIcon }
+}
 if ($iconPath -and (Test-Path $iconPath)) {
     $icon = New-Object System.Drawing.Icon($iconPath)
 } else {

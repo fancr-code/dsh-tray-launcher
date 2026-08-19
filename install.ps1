@@ -60,18 +60,31 @@ if ($DryRun) { Write-Output 'DryRun: 检测完成，未写入任何文件。'; e
 New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 
 # tray.ps1：优先用同目录副本（克隆安装），否则从 GitHub 下载（远程一行命令安装）
+$remoteMode = -not (Test-Path (Join-Path $PSScriptRoot 'tray.ps1'))
 $traySource = Join-Path $PSScriptRoot 'tray.ps1'
-if (-not (Test-Path $traySource)) {
+if ($remoteMode) {
     $traySource = Join-Path $env:TEMP 'dsh-tray.ps1'
     $rawUrl = "https://raw.githubusercontent.com/$RepoOwner/$RepoName/$Branch/tray.ps1"
     Invoke-WebRequest -Uri $rawUrl -OutFile $traySource -UseBasicParsing
 }
 Copy-Item $traySource (Join-Path $InstallDir 'tray.ps1') -Force
 
-# 图标
-$iconCopy = ''
+# 图标：-Icon 优先；其次仓库自带的梁祖图标；远程安装时从 GitHub 下载内置图标
+$iconSource = ''
 if ($Icon -and (Test-Path $Icon)) {
-    Copy-Item $Icon (Join-Path $InstallDir 'icon.ico') -Force
+    $iconSource = $Icon
+} else {
+    $bundled = Join-Path $PSScriptRoot 'liangzu-icon.ico'
+    if (Test-Path $bundled) { $iconSource = $bundled }
+}
+if (-not $iconSource -and $remoteMode) {
+    $iconSource = Join-Path $env:TEMP 'liangzu-icon.ico'
+    $iconUrl = "https://raw.githubusercontent.com/$RepoOwner/$RepoName/$Branch/liangzu-icon.ico"
+    Invoke-WebRequest -Uri $iconUrl -OutFile $iconSource -UseBasicParsing
+}
+$iconCopy = ''
+if ($iconSource) {
+    Copy-Item $iconSource (Join-Path $InstallDir 'icon.ico') -Force
     $iconCopy = Join-Path $InstallDir 'icon.ico'
 }
 
