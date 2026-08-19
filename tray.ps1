@@ -48,13 +48,33 @@ function Find-DshBin {
     $manual = Get-CfgValue 'dshBin' ''
     if ($manual -and (Test-Path $manual)) { return $manual }
     $candidates = @()
+    # 1) dsh 命令在 PATH 上：从 .bin shim 反推真实 bin.js
+    $cmd = Get-Command dsh -ErrorAction SilentlyContinue
+    if ($cmd) {
+        $binDir = Split-Path $cmd.Source -Parent
+        $candidates += (Join-Path (Split-Path $binDir -Parent) '@deepseek-ai\dsh\lib\bin.js')
+    }
+    # 2) 当前 npm 的缓存目录（权威来源，兼容自定义/重定向的缓存路径）
+    try {
+        $cache = & npm config get cache 2>$null
+        if ($cache) {
+            $npxDir = Join-Path $cache '_npx'
+            if (Test-Path $npxDir) {
+                $candidates += Get-ChildItem $npxDir -Directory -ErrorAction SilentlyContinue |
+                    ForEach-Object { Join-Path $_.FullName 'node_modules\@deepseek-ai\dsh\lib\bin.js' }
+            }
+        }
+    } catch {}
+    # 3) npm 全局安装
     try {
         $g = & npm root -g 2>$null
         if ($g) { $candidates += (Join-Path $g '@deepseek-ai\dsh\lib\bin.js') }
     } catch {}
-    $npxRoot = Join-Path $env:LOCALAPPDATA 'npm-cache\_npx'
-    if (Test-Path $npxRoot) {
-        $candidates += Get-ChildItem $npxRoot -Directory -ErrorAction SilentlyContinue |
+    # 4) 常见兜底位置
+    $candidates += (Join-Path $env:APPDATA 'npm\node_modules\@deepseek-ai\dsh\lib\bin.js')
+    $localNpx = Join-Path $env:LOCALAPPDATA 'npm-cache\_npx'
+    if (Test-Path $localNpx) {
+        $candidates += Get-ChildItem $localNpx -Directory -ErrorAction SilentlyContinue |
             ForEach-Object { Join-Path $_.FullName 'node_modules\@deepseek-ai\dsh\lib\bin.js' }
     }
     foreach ($c in $candidates) {

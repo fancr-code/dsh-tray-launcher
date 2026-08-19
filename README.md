@@ -66,15 +66,19 @@ DeepSeek Harness（dsh）默认在终端里前台运行 `dsh web`——必须留
 
 ```powershell
 npm install -g dsh-tray-launcher
-dsh-tray-install          # 一键安装：生成桌面快捷方式 + 配置 + 默认梁祖图标
+dsh-tray-install
 ```
+
+安装器会自动检测 dsh 与 node 位置并生成桌面快捷方式（默认梁祖图标）；找不到 dsh 时会提示你粘贴 `bin.js` 路径，也可用 `dsh-tray-install -DshPath "<bin.js 路径>"` 手动指定。
 
 之后日常使用：
 
 ```powershell
-dsh-tray                  # 启动托盘（无窗口）
-dsh-tray --console        # 控制台模式（日志直出终端）
+dsh-tray
+dsh-tray --console
 ```
+
+`dsh-tray` 为托盘模式（无窗口），`dsh-tray --console` 为控制台模式（日志直出终端）。
 
 ### 一行命令远程安装
 
