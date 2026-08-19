@@ -330,9 +330,19 @@ if ($already) {
     $tray.ShowBalloonTip(2500)
 } else {
     try {
-        $args = @('"' + $bin + '"', 'web')
-        $script:proc = Start-Process -FilePath $node -ArgumentList $args -WorkingDirectory $cwd `
-            -WindowStyle Hidden -RedirectStandardOutput $outLog -RedirectStandardError $errLog -PassThru
+        # 启动 harness：用 CreateNoWindow（CREATE_NO_WINDOW）从 API 层面禁止控制台——
+        # 部分机器上 Start-Process -WindowStyle Hidden 会被忽略，导致黑窗。
+        # 经 cmd /c 中转以保留日志重定向（>> 追加，无缓冲区死锁）。
+        $cmdLine = '/c ""' + $node + '" "' + $bin + '" web >> "' + $outLog + '" 2>> "' + $errLog + '" "'
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = $env:ComSpec
+        $psi.Arguments = $cmdLine
+        $psi.WorkingDirectory = $cwd
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        $script:proc = New-Object System.Diagnostics.Process
+        $script:proc.StartInfo = $psi
+        [void]$script:proc.Start()
         $script:spawned = $true
         Write-TrayLog ('harness started hidden, pid ' + $script:proc.Id)
         $tray.BalloonTipTitle = 'DeepSeek Harness'
