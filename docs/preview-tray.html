@@ -36,13 +36,26 @@
   }
   /* 右键菜单 */
   .menu {
-    position: absolute; right: 16px; bottom: 56px; width: 208px;
+    position: absolute; right: 16px; bottom: 56px; width: 216px;
     background: #141a26; border: 1px solid #333d4f; border-radius: 10px;
     box-shadow: 0 10px 32px rgba(0,0,0,.6); padding: 4px; font-size: 13px;
   }
-  .menu .item { padding: 5px 10px; border-radius: 6px; color: #e8ecf4; }
+  .menu .item { padding: 5px 10px; border-radius: 6px; color: #e8ecf4; display: flex; align-items: center; gap: 8px; }
   .menu .item.hover { background: #1e2735; }
+  .menu .item .arrow-right { margin-left: auto; color: #667082; font-size: 10px; }
   .menu .sep { height: 1px; background: #28303f; margin: 4px 6px; }
+  .menu .item img { width: 16px; height: 16px; border-radius: 4px; }
+  .menu .item .check { margin-left: auto; color: #3b82f6; font-weight: 700; }
+  /* 图标切换子菜单 */
+  .submenu {
+    position: absolute; right: 240px; bottom: 160px; width: 170px;
+    background: #141a26; border: 1px solid #333d4f; border-radius: 10px;
+    box-shadow: 0 10px 32px rgba(0,0,0,.6); padding: 4px; font-size: 13px;
+  }
+  .submenu .item { padding: 5px 10px; border-radius: 6px; color: #e8ecf4; display: flex; align-items: center; gap: 8px; }
+  .submenu .item img { width: 16px; height: 16px; border-radius: 4px; }
+  .submenu .item .check { margin-left: auto; color: #3b82f6; font-weight: 700; }
+  .submenu .sep { height: 1px; background: #28303f; margin: 4px 6px; }
   /* 任务栏 */
   .taskbar {
     position: absolute; left: 0; right: 0; bottom: 0; height: 46px;
@@ -72,7 +85,17 @@
     <div class="item hover">打开界面</div>
     <div class="item">打开日志</div>
     <div class="sep"></div>
+    <div class="item">切换图标 <span class="arrow-right">▸</span></div>
+    <div class="sep"></div>
     <div class="item">退出</div>
+  </div>
+
+  <div class="submenu">
+    <div class="item"><img src="liangzu-icon.png"> 梁祖 <span class="check">✓</span></div>
+    <div class="item"><img src="whale-girl.png"> 鲸鱼娘</div>
+    <div class="item"><img src="deepseek.png"> DeepSeek</div>
+    <div class="sep"></div>
+    <div class="item">自定义…</div>
   </div>
 
   <div class="taskbar">

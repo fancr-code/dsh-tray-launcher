@@ -110,13 +110,40 @@ if (-not $createdNew) {
 Write-TrayLog 'tray launcher started'
 
 # ---- 托盘图标与菜单 ----
-$iconPath = Get-CfgValue 'icon' ''
-if (-not $iconPath -or -not (Test-Path $iconPath)) {
-    $bundledIcon = Join-Path $PSScriptRoot 'liangzu-icon.ico'
-    if (Test-Path $bundledIcon) { $iconPath = $bundledIcon }
+$script:PresetIcons = @{
+    'liangzu'    = 'icons\liangzu.ico'
+    'whale-girl' = 'icons\whale-girl.ico'
+    'deepseek'   = 'icons\deepseek.ico'
 }
-if ($iconPath -and (Test-Path $iconPath)) {
-    $icon = New-Object System.Drawing.Icon($iconPath)
+$script:PresetLabels = @{
+    'liangzu'    = '梁祖'
+    'whale-girl' = '鲸鱼娘'
+    'deepseek'   = 'DeepSeek'
+}
+
+function Resolve-IconPath {
+    $v = Get-CfgValue 'icon' ''
+    if ($v) {
+        if ($script:PresetIcons.ContainsKey($v)) {
+            $p = Join-Path $PSScriptRoot $script:PresetIcons[$v]
+            if (Test-Path $p) { return $p }
+        } elseif (Test-Path $v) {
+            return $v
+        }
+    }
+    $legacy = Join-Path $PSScriptRoot 'liangzu-icon.ico'
+    if (Test-Path $legacy) { return $legacy }
+    return $null
+}
+
+$script:currentIconKey = 'custom'
+$v = Get-CfgValue 'icon' ''
+if ($v -and $script:PresetIcons.ContainsKey($v)) { $script:currentIconKey = $v }
+elseif ($v -eq '') { $script:currentIconKey = 'liangzu' }  # 未配置时默认梁祖
+
+$iconPath = Resolve-IconPath
+if ($iconPath) {
+    try { $icon = New-Object System.Drawing.Icon($iconPath) } catch { $icon = [System.Drawing.SystemIcons]::Application }
 } else {
     $icon = [System.Drawing.SystemIcons]::Application
 }
@@ -125,13 +152,113 @@ $tray.Icon = $icon
 $tray.Text = 'DeepSeek Harness'
 $tray.Visible = $true
 
+# ---- 图标切换：更新托盘 + 配置 + 桌面/自启快捷方式 ----
+function Update-ShortcutIcon($icoPath) {
+    if (-not $icoPath -or -not (Test-Path $icoPath)) { return }
+    try {
+        $ws = New-Object -ComObject WScript.Shell
+        $shortcutPath = Get-CfgValue 'shortcut' ''
+        if ($shortcutPath -and (Test-Path $shortcutPath)) {
+            $lnk = $ws.CreateShortcut($shortcutPath)
+            $lnk.IconLocation = $icoPath + ',0'
+            $lnk.Save()
+        }
+        $name = [System.IO.Path]::GetFileName($shortcutPath)
+        if ($name) {
+            $autoPath = Join-Path ([Environment]::GetFolderPath('Startup')) $name
+            if (Test-Path $autoPath) {
+                $lnk2 = $ws.CreateShortcut($autoPath)
+                $lnk2.IconLocation = $icoPath + ',0'
+                $lnk2.Save()
+            }
+        }
+        Write-TrayLog ('shortcut icon updated: ' + $icoPath)
+    } catch {
+        Write-TrayLog ('shortcut icon update failed: ' + $_.Exception.Message)
+    }
+}
+
+function Save-IconConfig($value) {
+    $cfg = $null
+    try { $cfg = Get-Content $configPath -Raw | ConvertFrom-Json } catch {}
+    if (-not $cfg) { $cfg = [pscustomobject]@{} }
+    $cfg | Add-Member -MemberType NoteProperty -Name 'icon' -Value $value -Force
+    $cfg | ConvertTo-Json | Set-Content -Path $configPath -Encoding UTF8
+    $script:cfg = $cfg
+}
+
+function Apply-Icon($key, $icoPath) {
+    if (-not $icoPath -or -not (Test-Path $icoPath)) {
+        Write-TrayLog ('icon missing: ' + $key)
+        return
+    }
+    try {
+        $newIcon = New-Object System.Drawing.Icon($icoPath)
+        $tray.Icon = $newIcon
+    } catch {
+        Write-TrayLog ('icon load failed: ' + $_.Exception.Message)
+        return
+    }
+    $script:currentIconKey = $key
+    Save-IconConfig $key
+    Update-ShortcutIcon $icoPath
+    Update-IconMenuChecks
+    $label = if ($script:PresetLabels.ContainsKey($key)) { $script:PresetLabels[$key] } else { '自定义图标' }
+    $tray.BalloonTipTitle = 'DeepSeek Harness'
+    $tray.BalloonTipText = ('已切换图标：' + $label)
+    $tray.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Info
+    $tray.ShowBalloonTip(2000)
+    Write-TrayLog ('icon switched to ' + $key)
+}
+
+function Update-IconMenuChecks {
+    foreach ($it in $script:presetMenuItems.Values) {
+        $it.Checked = ($it.Tag -eq $script:currentIconKey)
+    }
+    $script:customMenuItem.Checked = ($script:currentIconKey -eq 'custom')
+}
+
 $menu = New-Object System.Windows.Forms.ContextMenuStrip
 $miOpen = $menu.Items.Add('打开界面')
 $miLog  = $menu.Items.Add('打开日志')
 $sep    = New-Object System.Windows.Forms.ToolStripSeparator
 $menu.Items.Add($sep) | Out-Null
+
+# 切换图标子菜单（预设 + 自定义）
+$miIcon = New-Object System.Windows.Forms.ToolStripMenuItem('切换图标')
+$script:presetMenuItems = @{}
+foreach ($key in @('liangzu', 'whale-girl', 'deepseek')) {
+    $item = New-Object System.Windows.Forms.ToolStripMenuItem($script:PresetLabels[$key])
+    $item.Tag = $key
+    $item.add_Click({
+        $k = $this.Tag
+        $p = Join-Path $PSScriptRoot $script:PresetIcons[$k]
+        Apply-Icon $k $p
+    })
+    $miIcon.DropDownItems.Add($item) | Out-Null
+    $script:presetMenuItems[$key] = $item
+}
+$sep2 = New-Object System.Windows.Forms.ToolStripSeparator
+$miIcon.DropDownItems.Add($sep2) | Out-Null
+$script:customMenuItem = New-Object System.Windows.Forms.ToolStripMenuItem('自定义…')
+$script:customMenuItem.add_Click({
+    $dlg = New-Object System.Windows.Forms.OpenFileDialog
+    $dlg.Filter = '图标文件 (*.ico)|*.ico|所有文件 (*.*)|*.*'
+    $dlg.Title = '选择图标（.ico）'
+    if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+        $dest = Join-Path $PSScriptRoot 'custom.ico'
+        Copy-Item $dlg.FileName $dest -Force
+        Apply-Icon $dest $dest
+    }
+})
+$miIcon.DropDownItems.Add($script:customMenuItem) | Out-Null
+$menu.Items.Add($miIcon) | Out-Null
+
+$sep3 = New-Object System.Windows.Forms.ToolStripSeparator
+$menu.Items.Add($sep3) | Out-Null
 $miExit = $menu.Items.Add('退出')
 $tray.ContextMenuStrip = $menu
+Update-IconMenuChecks
 
 $miOpen.add_Click({ Start-Process $url })
 $miLog.add_Click({ Start-Process notepad $outLog })

@@ -69,33 +69,27 @@ if ($remoteMode) {
 }
 Copy-Item $traySource (Join-Path $InstallDir 'tray.ps1') -Force
 
-# 图标：-Icon 优先；其次仓库自带的梁祖图标；远程安装时从 GitHub 下载内置图标
-$iconSource = ''
-if ($Icon -and (Test-Path $Icon)) {
-    $iconSource = $Icon
-} else {
-    $bundled = Join-Path $PSScriptRoot 'liangzu-icon.ico'
-    if (Test-Path $bundled) { $iconSource = $bundled }
-}
-if (-not $iconSource -and $remoteMode) {
-    $iconSource = Join-Path $env:TEMP 'liangzu-icon.ico'
-    $iconUrl = "https://raw.githubusercontent.com/$RepoOwner/$RepoName/$Branch/liangzu-icon.ico"
-    Invoke-WebRequest -Uri $iconUrl -OutFile $iconSource -UseBasicParsing
-}
-$iconCopy = ''
-if ($iconSource) {
-    Copy-Item $iconSource (Join-Path $InstallDir 'icon.ico') -Force
-    $iconCopy = Join-Path $InstallDir 'icon.ico'
+# 预设图标集（icons/：梁祖、鲸鱼娘、DeepSeek）；仓库安装直接复制，远程安装逐个下载
+$iconDir = Join-Path $InstallDir 'icons'
+New-Item -ItemType Directory -Path $iconDir -Force | Out-Null
+$presetFiles = @('liangzu.ico', 'whale-girl.ico', 'deepseek.ico')
+foreach ($f in $presetFiles) {
+    $srcFile = Join-Path $PSScriptRoot ("icons\" + $f)
+    if (Test-Path $srcFile) {
+        Copy-Item $srcFile (Join-Path $iconDir $f) -Force
+    } else {
+        $iconUrl = "https://raw.githubusercontent.com/$RepoOwner/$RepoName/$Branch/icons/$f"
+        Invoke-WebRequest -Uri $iconUrl -OutFile (Join-Path $iconDir $f) -UseBasicParsing
+    }
 }
 
-# 配置文件
-$cfg = @{
-    dshBin = $dshBin
-    node   = $nodePath
-    url    = 'http://127.0.0.1:3080'
-    icon   = $iconCopy
+# 自定义图标（-Icon 参数）：复制到安装目录并写绝对路径；默认使用梁祖预设
+$iconSetting = 'liangzu'
+if ($Icon -and (Test-Path $Icon)) {
+    $iconCopy = Join-Path $InstallDir 'icon.ico'
+    Copy-Item $Icon $iconCopy -Force
+    $iconSetting = $iconCopy
 }
-$cfg | ConvertTo-Json | Set-Content -Path (Join-Path $InstallDir 'dsh-tray.config.json') -Encoding UTF8
 
 # 桌面快捷方式
 $ws = New-Object -ComObject WScript.Shell
@@ -105,9 +99,20 @@ $lnk = $ws.CreateShortcut($lnkPath)
 $lnk.TargetPath = 'C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe'
 $lnk.Arguments = '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + (Join-Path $InstallDir 'tray.ps1') + '"'
 $lnk.WorkingDirectory = $InstallDir
-if ($iconCopy) { $lnk.IconLocation = $iconCopy + ',0' }
+$defaultIcon = Join-Path $iconDir 'liangzu.ico'
+if ($iconSetting -ne 'liangzu') { $lnk.IconLocation = $iconSetting + ',0' } else { $lnk.IconLocation = $defaultIcon + ',0' }
 $lnk.Description = 'DeepSeek Harness 系统托盘启动器'
 $lnk.Save()
+
+# 配置文件
+$cfg = @{
+    dshBin   = $dshBin
+    node     = $nodePath
+    url      = 'http://127.0.0.1:3080'
+    icon     = $iconSetting
+    shortcut = $lnkPath
+}
+$cfg | ConvertTo-Json | Set-Content -Path (Join-Path $InstallDir 'dsh-tray.config.json') -Encoding UTF8
 
 # 开机自启
 if ($Autostart) {

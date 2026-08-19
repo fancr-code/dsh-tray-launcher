@@ -44,7 +44,7 @@ DeepSeek Harness（dsh）默认在终端里前台运行 `dsh web`——必须留
 - 🌐 **就绪自动开浏览器**：后台轮询端口，harness 一监听就自动打开 Web GUI
 - 🔒 **单实例保护**：互斥锁 + 端口检测，重复双击快捷方式不会重复启动，只会唤起界面
 - 🔍 **自动定位 dsh**：配置文件 → npm 全局 → npx 缓存逐级探测，找不到才报错；也可手动指定
-- 🎨 **自带梁祖图标**：仓库随附 `liangzu-icon.ico`，安装器默认使用（托盘 + 快捷方式）；也支持 `-Icon` 换成自己的图标
+- 🎨 **多图标 + 右键切换**：预设**梁祖 / 鲸鱼娘 / DeepSeek** 三款图标，托盘右键「切换图标」一键更换，**托盘与桌面快捷方式图标同步更新**；也支持「自定义…」选择任意 `.ico`
 - 🚀 **可选开机自启**：`-Autostart` 把快捷方式复制进启动文件夹
 - 🩺 **控制台模式兜底**：`launch.bat` 前台运行、日志直出窗口，排查问题时用
 
@@ -117,6 +117,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File install.ps1 -Icon D:\icons\l
 | 双击托盘图标 | 打开界面 |
 | 托盘「打开界面」 | 浏览器打开 Web GUI |
 | 托盘「打开日志」 | 记事本打开 stdout 日志 |
+| 托盘「切换图标」 | 弹出子菜单：梁祖 / 鲸鱼娘 / DeepSeek / 自定义…（选择后托盘与快捷方式图标立即同步，选中项打勾） |
 | 托盘「退出」 | 停止 harness + 关闭托盘（全部退出） |
 | harness 意外退出 | 气泡提示「已停止」并自动收起托盘 |
 
@@ -126,15 +127,21 @@ powershell -NoProfile -ExecutionPolicy Bypass -File install.ps1 -Icon D:\icons\l
 
 ```json
 {
-  "dshBin": "C:\\...\\node_modules\\@deepseek-ai\\dsh\\lib\\bin.js",
-  "node":   "C:\\Program Files\\nodejs\\node.exe",
-  "url":    "http://127.0.0.1:3080",
-  "icon":   "C:\\...\\icon.ico",
-  "cwd":    "C:\\Users\\<you>"
+  "dshBin":   "C:\\...\\node_modules\\@deepseek-ai\\dsh\\lib\\bin.js",
+  "node":     "C:\\Program Files\\nodejs\\node.exe",
+  "url":      "http://127.0.0.1:3080",
+  "icon":     "liangzu",
+  "shortcut": "C:\\Users\\<you>\\Desktop\\DeepSeek Harness.lnk",
+  "cwd":      "C:\\Users\\<you>"
 }
 ```
 
-`dshBin` / `node` / `icon` 缺省时按「npm 全局 → npx 缓存 → PATH → 常见路径」顺序自动探测。日志写在安装目录 `logs\` 下（`dsh-out.log` / `dsh-err.log` / `dsh-tray.log`）。
+| 字段 | 说明 |
+| --- | --- |
+| `icon` | 图标：`liangzu`（梁祖，默认）/ `whale-girl`（鲸鱼娘）/ `deepseek`（DeepSeek 鲸鱼）/ 自定义 `.ico` 的绝对路径；托盘右键「切换图标」会写这个字段 |
+| `shortcut` | 桌面快捷方式路径，切图标时用它同步快捷方式图标 |
+
+`dshBin` / `node` 缺省时按「npm 全局 → npx 缓存 → PATH → 常见路径」顺序自动探测。日志写在安装目录 `logs\` 下（`dsh-out.log` / `dsh-err.log` / `dsh-tray.log`）。
 
 ## 卸载
 
@@ -186,7 +193,7 @@ Windows 会把不常用的新图标收进通知区「^」折叠区，点开小�
 - 「退出 / 停止」通过端口占用者与「命令行含 `dsh` 的 node.exe 进程」定位并结束 harness；若同时跑着其他命令行里带 `dsh` 字样的 node 进程，可能被一并结束
 - 单实例互斥锁在**同一用户会话**内有效；不同用户/会话可各开一套
 - 端口检测依赖 `Get-NetTCPConnection`（Windows 8+ 内置），固定端口 `3080`（监听端口由 dsh 自身配置决定，本工具只负责按该端口检测）
-- 仓库随附的梁祖图标（`liangzu-icon.ico`）源自 [liang-intensity-calibrator](https://github.com/Lichtspektrum/liang-intensity-calibrator) 项目的画像资产，仅作图标随工具分发；若版权方要求移除，开 issue 将立即处理
+- 仓库随附的图标素材：梁祖画像源自 [liang-intensity-calibrator](https://github.com/Lichtspektrum/liang-intensity-calibrator)、鲸鱼娘帧源自 [dsh-client-ui-pet](https://github.com/xituisuany-max/dsh-client-ui-pet)、DeepSeek 鲸鱼 logo 为 DeepSeek 官方标识——均仅作图标随工具分发，若版权方要求移除，开 issue 将立即处理
 - 本工具只负责启动/常驻，不接管 dsh 的升级、多 profile 等能力
 
 ## 许可
@@ -195,4 +202,4 @@ MIT © 2026 fancr-code
 
 ## 致谢
 
-托盘形态与无窗口化思路参考了社区各类 dsh 桌面工具的实践；随附的梁祖图标来自 [liang-intensity-calibrator](https://github.com/Lichtspektrum/liang-intensity-calibrator) 项目（画像资产归原作者，见「已知限制」）。
+托盘形态与无窗口化思路参考了社区各类 dsh 桌面工具的实践；随附图标素材：梁祖画像来自 [liang-intensity-calibrator](https://github.com/Lichtspektrum/liang-intensity-calibrator)、鲸鱼娘帧来自 [dsh-client-ui-pet](https://github.com/xituisuany-max/dsh-client-ui-pet)、DeepSeek 鲸鱼 logo 为官方标识（画像资产归原作者，见「已知限制」）。
