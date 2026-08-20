@@ -4,9 +4,11 @@
 # 托盘模式   : powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File tray.ps1
 # 控制台模式 : powershell -NoProfile -ExecutionPolicy Bypass -File tray.ps1 -ConsoleMode
 # 测试模式   : 追加 -NoOpen 不自动打开浏览器
+# -NoRespawn : 内部参数（无窗口重启自身时使用，防止循环）
 param(
     [switch]$ConsoleMode,
-    [switch]$NoOpen
+    [switch]$NoOpen,
+    [switch]$NoRespawn
 )
 
 $ErrorActionPreference = 'SilentlyContinue'
@@ -129,14 +131,14 @@ if (-not $bin) {
 }
 
 # ---- 托盘模式 ----
-$script:TrayVersion = '1.1.13'
+$script:TrayVersion = '1.1.14'
 # 版本烙印：控制台标题（若有可见控制台，标题会显示实际运行的版本）与日志
 try { $Host.UI.RawUI.WindowTitle = 'DSH-Tray v' + $script:TrayVersion } catch {}
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-# 强制消除控制台窗口：先按句柄隐藏（SW_HIDE），再释放控制台（FreeConsole）。
+# 快路径：按句柄隐藏（SW_HIDE）并释放控制台（FreeConsole）。
 # 不依赖启动标志——部分机器上 -WindowStyle Hidden 会被 Windows Terminal 默认终端机制忽略。
 try {
     Add-Type -Name K32Win -Namespace Win32 -MemberDefinition @'
@@ -147,6 +149,23 @@ try {
     [Win32.K32Win]::ShowWindow([Win32.K32Win]::GetConsoleWindow(), 0) | Out-Null
     [Win32.K32Win]::FreeConsole() | Out-Null
 } catch {}
+
+# 兜底：若仍持有控制台（Add-Type 被策略禁用 / 隐藏失败），用 CreateNoWindow
+# 无窗口重启自身后退出——原进程退出即销毁其控制台窗口，无需任何 C# 编译。
+if (-not $NoRespawn) {
+    try { $cw = [System.Console]::WindowWidth } catch { $cw = -1 }
+    if ($cw -gt 0) {
+        try {
+            $psi = New-Object System.Diagnostics.ProcessStartInfo
+            $psi.FileName = 'powershell.exe'
+            $psi.Arguments = '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -NoRespawn -File "' + $PSCommandPath + '"'
+            $psi.UseShellExecute = $false
+            $psi.CreateNoWindow = $true
+            [System.Diagnostics.Process]::Start($psi) | Out-Null
+        } catch {}
+        exit 0
+    }
+}
 
 $logDir = Join-Path $PSScriptRoot 'logs'
 New-Item -ItemType Directory -Path $logDir -Force | Out-Null
