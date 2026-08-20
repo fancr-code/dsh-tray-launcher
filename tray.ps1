@@ -129,17 +129,24 @@ if (-not $bin) {
 }
 
 # ---- 托盘模式 ----
-$script:TrayVersion = '1.1.9'
+$script:TrayVersion = '1.1.13'
 # 版本烙印：控制台标题（若有可见控制台，标题会显示实际运行的版本）与日志
 try { $Host.UI.RawUI.WindowTitle = 'DSH-Tray v' + $script:TrayVersion } catch {}
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-# 与任何控制台彻底脱钩：即使启动路径误分配了控制台（旧包装器等），也立即释放——
-# 不出现黑窗，且关闭任何窗口都不会带走托盘进程。
-Add-Type -Name K32 -Namespace Win32 -MemberDefinition '[DllImport("kernel32.dll")] public static extern bool FreeConsole();'
-[Win32.K32]::FreeConsole() | Out-Null
+# 强制消除控制台窗口：先按句柄隐藏（SW_HIDE），再释放控制台（FreeConsole）。
+# 不依赖启动标志——部分机器上 -WindowStyle Hidden 会被 Windows Terminal 默认终端机制忽略。
+try {
+    Add-Type -Name K32Win -Namespace Win32 -MemberDefinition @'
+[DllImport("kernel32.dll")] public static extern bool FreeConsole();
+[DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
+[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+'@
+    [Win32.K32Win]::ShowWindow([Win32.K32Win]::GetConsoleWindow(), 0) | Out-Null
+    [Win32.K32Win]::FreeConsole() | Out-Null
+} catch {}
 
 $logDir = Join-Path $PSScriptRoot 'logs'
 New-Item -ItemType Directory -Path $logDir -Force | Out-Null
