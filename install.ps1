@@ -125,6 +125,16 @@ if ($remoteMode) {
 }
 Copy-Item $traySource (Join-Path $InstallDir 'tray.ps1') -Force
 
+# VBS uses the GUI-script host to start PowerShell without attaching a console.
+$launcherSource = Join-Path $PSScriptRoot 'launch-hidden.vbs'
+$launcherDest = Join-Path $InstallDir 'launch-hidden.vbs'
+if (Test-Path $launcherSource) {
+    Copy-Item $launcherSource $launcherDest -Force
+} else {
+    $launcherUrl = "https://raw.githubusercontent.com/$RepoOwner/$RepoName/$Branch/launch-hidden.vbs"
+    Invoke-WebRequest -Uri $launcherUrl -OutFile $launcherDest -UseBasicParsing
+}
+
 # 预设图标集（icons/：梁祖、鲸鱼娘、DeepSeek）；仓库安装直接复制，远程安装逐个下载
 $iconDir = Join-Path $InstallDir 'icons'
 New-Item -ItemType Directory -Path $iconDir -Force | Out-Null
@@ -152,15 +162,13 @@ $ws = New-Object -ComObject WScript.Shell
 $desktop = [Environment]::GetFolderPath('Desktop')
 $lnkPath = Join-Path $desktop ($ShortcutName + '.lnk')
 $lnk = $ws.CreateShortcut($lnkPath)
-$lnk.TargetPath = 'C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe'
-$lnk.Arguments = '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + (Join-Path $InstallDir 'tray.ps1') + '"'
+$lnk.TargetPath = 'C:\WINDOWS\System32\wscript.exe'
+$lnk.Arguments = '"' + $launcherDest + '"'
 $lnk.WorkingDirectory = $InstallDir
 $defaultIcon = Join-Path $iconDir 'liangzu.ico'
 if ($iconSetting -ne 'liangzu') { $lnk.IconLocation = $iconSetting + ',0' } else { $lnk.IconLocation = $defaultIcon + ',0' }
 $lnk.Description = 'DeepSeek Harness 系统托盘启动器'
-# 运行方式 = 最小化（7）：Windows Terminal 设为默认终端时，-WindowStyle Hidden 可能被忽略
-# 而闪一下窗口；最小化运行可规避该问题，托盘脚本本身仍是无窗口的。
-$lnk.WindowStyle = 7
+$lnk.WindowStyle = 1
 $lnk.Save()
 
 # 配置文件
