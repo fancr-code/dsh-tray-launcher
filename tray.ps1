@@ -336,6 +336,79 @@ $script:customMenuItem.add_Click({
 $miIcon.DropDownItems.Add($script:customMenuItem) | Out-Null
 $menu.Items.Add($miIcon) | Out-Null
 
+# 开机自启（勾选 = 启动文件夹里有快捷方式；点击即切换）
+function Get-ShortcutPath {
+    $p = Get-CfgValue 'shortcut' ''
+    if ($p -and (Test-Path $p)) { return $p }
+    return $null
+}
+function Ensure-DesktopShortcut {
+    $existing = Get-ShortcutPath
+    if ($existing) { return $existing }
+    try {
+        $name = 'DeepSeek Harness'
+        $desktop = [Environment]::GetFolderPath('Desktop')
+        $lnkPath = Join-Path $desktop ($name + '.lnk')
+        $ws = New-Object -ComObject WScript.Shell
+        $lnk = $ws.CreateShortcut($lnkPath)
+        $vbs = Join-Path $PSScriptRoot 'launch-hidden.vbs'
+        if (Test-Path $vbs) {
+            $lnk.TargetPath = 'C:\WINDOWS\System32\wscript.exe'
+            $lnk.Arguments = '"' + $vbs + '"'
+        } else {
+            $lnk.TargetPath = 'C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe'
+            $lnk.Arguments = '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + (Join-Path $PSScriptRoot 'tray.ps1') + '"'
+        }
+        $lnk.WorkingDirectory = $PSScriptRoot
+        $iconFile = Join-Path $PSScriptRoot 'icons\liangzu.ico'
+        if (Test-Path $iconFile) { $lnk.IconLocation = $iconFile + ',0' }
+        $lnk.Description = 'DeepSeek Harness 系统托盘启动器'
+        $lnk.WindowStyle = 7
+        $lnk.Save()
+        Write-TrayLog ('desktop shortcut created: ' + $lnkPath)
+        return $lnkPath
+    } catch {
+        Write-TrayLog ('shortcut creation failed: ' + $_.Exception.Message)
+        return $null
+    }
+}
+$script:miAutostart = New-Object System.Windows.Forms.ToolStripMenuItem('开机自启')
+$script:miAutostart.CheckOnClick = $false
+$script:miAutostart.add_Click({
+    $shortcutPath = Ensure-DesktopShortcut
+    if (-not $shortcutPath) {
+        $tray.BalloonTipTitle = 'DeepSeek Harness'
+        $tray.BalloonTipText = '未找到桌面快捷方式，无法设置开机自启'
+        $tray.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Warning
+        $tray.ShowBalloonTip(2500)
+        return
+    }
+    $name = [System.IO.Path]::GetFileName($shortcutPath)
+    $startupPath = Join-Path ([Environment]::GetFolderPath('Startup')) $name
+    if (Test-Path $startupPath) {
+        Remove-Item $startupPath -Force
+        $script:miAutostart.Checked = $false
+        $tray.BalloonTipTitle = 'DeepSeek Harness'
+        $tray.BalloonTipText = '已关闭开机自启'
+        Write-TrayLog 'autostart disabled'
+    } else {
+        Copy-Item $shortcutPath $startupPath -Force
+        $script:miAutostart.Checked = $true
+        $tray.BalloonTipTitle = 'DeepSeek Harness'
+        $tray.BalloonTipText = '已开启开机自启'
+        Write-TrayLog 'autostart enabled'
+    }
+    $tray.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Info
+    $tray.ShowBalloonTip(2500)
+})
+$menu.Items.Add($script:miAutostart) | Out-Null
+# 初始勾选状态：启动文件夹里存在对应快捷方式
+$shortcutForCheck = Get-ShortcutPath
+if ($shortcutForCheck) {
+    $startupCheck = Join-Path ([Environment]::GetFolderPath('Startup')) ([System.IO.Path]::GetFileName($shortcutForCheck))
+    $script:miAutostart.Checked = (Test-Path $startupCheck)
+}
+
 $sep3 = New-Object System.Windows.Forms.ToolStripSeparator
 $menu.Items.Add($sep3) | Out-Null
 $miExit = $menu.Items.Add('退出')
