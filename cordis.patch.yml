@@ -1,0 +1,7 @@
+# Bundle patch: auto-registers this package when installed via
+# `dsh plugin --profile web add dsh-tray-launcher`, so the tray icon starts
+# together with the harness on Windows (src/plugin.js). The launcher itself
+# can also be installed standalone with `npx dsh-tray-install`.
+- insert:
+    - id: dsh-tray-launcher
+      name: dsh-tray-launcher

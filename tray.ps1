@@ -8,14 +8,19 @@
 param(
     [switch]$ConsoleMode,
     [switch]$NoOpen,
-    [switch]$NoRespawn
+    [switch]$NoRespawn,
+    [string]$DataDir = ''
 )
+
+# 状态目录：默认与脚本同目录（install.ps1 部署方式）；以 dsh 插件方式运行时
+# 由 src/plugin.js 传入 -DataDir，避免把配置与日志写进 node_modules。
+if ($DataDir.Trim() -ne '') { $script:dataDir = $DataDir.Trim() } else { $script:dataDir = $PSScriptRoot }
 
 $ErrorActionPreference = 'SilentlyContinue'
 
 # ---- 配置（install.ps1 写入；所有字段可选，缺省自动探测）----
 $script:cfg = $null
-$configPath = Join-Path $PSScriptRoot 'dsh-tray.config.json'
+$configPath = Join-Path $script:dataDir 'dsh-tray.config.json'
 if (Test-Path $configPath) {
     try { $script:cfg = Get-Content $configPath -Raw | ConvertFrom-Json } catch {}
 }
@@ -163,7 +168,9 @@ if (-not $NoRespawn) {
         try {
             $psi = New-Object System.Diagnostics.ProcessStartInfo
             $psi.FileName = 'powershell.exe'
-            $psi.Arguments = '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -NoRespawn -File "' + $PSCommandPath + '"'
+            $respawnArgs = '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -NoRespawn'
+            if ($script:dataDir -ne $PSScriptRoot) { $respawnArgs = $respawnArgs + ' -DataDir "' + $script:dataDir + '"' }
+            $psi.Arguments = $respawnArgs + ' -File "' + $PSCommandPath + '"'
             $psi.UseShellExecute = $false
             $psi.CreateNoWindow = $true
             [System.Diagnostics.Process]::Start($psi) | Out-Null
@@ -172,7 +179,7 @@ if (-not $NoRespawn) {
     }
 }
 
-$logDir = Join-Path $PSScriptRoot 'logs'
+$logDir = Join-Path $script:dataDir 'logs'
 New-Item -ItemType Directory -Path $logDir -Force | Out-Null
 $outLog  = Join-Path $logDir 'dsh-out.log'
 $errLog  = Join-Path $logDir 'dsh-err.log'
@@ -295,6 +302,8 @@ function Compare-Version($a, $b) {
 function Find-BundledPlugin {
     # 纯 PowerShell 定位随包依赖（npm 全局 node_modules 同级 / prefix / .npmrc）
     $cands = @()
+    # npm/pnpm 依赖嵌套布局（作为 dsh 插件安装时最常见）
+    $cands += (Join-Path $PSScriptRoot 'node_modules\dsh-plugin-usage-meter')
     $cands += (Join-Path (Split-Path $PSScriptRoot -Parent) 'dsh-plugin-usage-meter')
     if ($env:NPM_CONFIG_PREFIX) { $cands += (Join-Path $env:NPM_CONFIG_PREFIX 'dsh-plugin-usage-meter') }
     foreach ($rc in @((Join-Path $env:USERPROFILE '.npmrc'))) {
@@ -387,7 +396,7 @@ $script:customMenuItem.add_Click({
     $dlg.Filter = '图标文件 (*.ico)|*.ico|所有文件 (*.*)|*.*'
     $dlg.Title = '选择图标（.ico）'
     if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-        $dest = Join-Path $PSScriptRoot 'custom.ico'
+        $dest = Join-Path $script:dataDir 'custom.ico'
         Copy-Item $dlg.FileName $dest -Force
         Apply-Icon $dest $dest
     }
