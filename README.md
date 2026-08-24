@@ -49,6 +49,7 @@ DeepSeek Harness（dsh）默认在终端里前台运行 `dsh web`——必须留
 - 🎨 **多图标 + 右键切换**：预设**梁祖 / 鲸鱼娘 / DeepSeek** 三款图标，托盘右键「切换图标」一键更换，**托盘与桌面快捷方式图标同步更新**；也支持「自定义…」选择任意 `.ico`
 - 🚀 **可选开机自启**：安装时 `-Autostart` 注册；也可随时在托盘右键「开机自启」一键开关
 - 📊 **内置用量仪表**：随包携带 [dsh-plugin-usage-meter](https://github.com/fancr-code/dsh-plugin-usage-meter)，安装时自动注册进 dsh web profile；托盘「用量仪表」菜单显示当前版本并可一键更新（插件发新版后托盘启动时气泡提醒）
+- 🧩 **可作 dsh 插件安装**：`dsh plugin add dsh-tray-launcher` 后托盘随 Harness 自动启动/退出，状态文件存 `%DSH_HOME%\dsh-tray`（详见下方「作为 dsh 插件安装」）
 - 🩺 **控制台模式兜底**：`launch.bat` 前台运行、日志直出窗口，排查问题时用
 
 ## 界面预览
@@ -82,6 +83,14 @@ dsh-tray --console
 ```
 
 `dsh-tray` 为托盘模式（无窗口），`dsh-tray --console` 为控制台模式（日志直出终端）。
+
+### 作为 dsh 插件安装（托盘随 Harness 启动）
+
+```powershell
+dsh plugin --profile web add dsh-tray-launcher
+```
+
+包内自带 dsh 插件半体（`src/plugin.js` + `cordis.patch.yml`）：Windows 上 `dsh web` 启动时自动以无窗口方式拉起托盘图标，Harness 退出时随之关闭；已由桌面快捷方式启动的托盘会被全局互斥锁去重，不会重复出现。此方式下配置与日志保存在 `%DSH_HOME%\dsh-tray`，不写入 node_modules。非 Windows 平台自动跳过。
 
 ### 一行命令远程安装
 
