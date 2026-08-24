@@ -131,7 +131,12 @@ if (-not $bin) {
 }
 
 # ---- 托盘模式 ----
-$script:TrayVersion = '1.1.14'
+$script:TrayVersion = '1.2.1'
+try {
+    $pk = Join-Path $PSScriptRoot 'package.json'
+    if (Test-Path $pk) { $pv = (Get-Content $pk -Raw | ConvertFrom-Json).version }
+    if ($pv) { $script:TrayVersion = $pv }
+} catch {}
 # 版本烙印：控制台标题（若有可见控制台，标题会显示实际运行的版本）与日志
 try { $Host.UI.RawUI.WindowTitle = 'DSH-Tray v' + $script:TrayVersion } catch {}
 
