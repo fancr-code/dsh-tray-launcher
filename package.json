@@ -1,6 +1,6 @@
 {
   "name": "dsh-tray-launcher",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "DeepSeek Harness 的 Windows 桌面托盘启动器：无窗口运行 dsh web，托盘右键切换图标、开机自启、重启 Harness，并内置用量/费用仪表插件（dsh-plugin-usage-meter）的一键安装与更新。同时以 dsh 插件形式提供（dsh plugin add 后托盘随 Harness 自动启动）。",
   "license": "MIT",
   "author": "fancr-code",

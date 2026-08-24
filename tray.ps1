@@ -136,7 +136,7 @@ if (-not $bin) {
 }
 
 # ---- 托盘模式 ----
-$script:TrayVersion = '1.3.0'
+$script:TrayVersion = '1.4.0'
 try {
     $pk = Join-Path $PSScriptRoot 'package.json'
     if (Test-Path $pk) { $pv = (Get-Content $pk -Raw | ConvertFrom-Json).version }
@@ -530,6 +530,127 @@ $script:miUsage.DropDownItems.Add($script:miUsageStatus) | Out-Null
 $script:miUsage.DropDownItems.Add($script:miUsageUpdate) | Out-Null
 $menu.Items.Add($script:miUsage) | Out-Null
 
+# 启动器自更新：npm 查询最新版 + 一键更新
+$script:latestTrayVersion = ''
+$script:selfCheckDone = $false
+$script:miSelf = New-Object System.Windows.Forms.ToolStripMenuItem('更新启动器')
+$script:miSelfStatus = New-Object System.Windows.Forms.ToolStripMenuItem(('当前 v' + $script:TrayVersion))
+$script:miSelfStatus.Enabled = $false
+$script:miSelfCheck = New-Object System.Windows.Forms.ToolStripMenuItem('检查更新')
+$script:miSelfUpdate = New-Object System.Windows.Forms.ToolStripMenuItem('更新到最新版')
+$script:miSelfUpdate.Enabled = $false
+
+function Find-NpmCmd {
+    if ($node -and (Test-Path $node)) {
+        $p = Join-Path (Split-Path $node -Parent) 'npm.cmd'
+        if (Test-Path $p) { return $p }
+    }
+    $c = Get-Command npm.cmd -ErrorAction SilentlyContinue
+    if ($c) { return $c.Source }
+    $c2 = Get-Command npm -ErrorAction SilentlyContinue
+    if ($c2) { return $c2.Source }
+    return $null
+}
+
+function Get-LatestTrayVersion {
+    # 隐藏执行 npm view（同 Run-DshPluginAdd 的 cmd /c + 重定向模式，不弹控制台）
+    $npm = Find-NpmCmd
+    if (-not $npm) { return '' }
+    $tmp = Join-Path $script:dataDir 'npm-view.txt'
+    Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+    $cmdLine = '/c ""' + $npm + '" view dsh-tray-launcher version > "' + $tmp + '" 2>nul "'
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $env:ComSpec
+    $psi.Arguments = $cmdLine
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    $p = New-Object System.Diagnostics.Process
+    $p.StartInfo = $psi
+    [void]$p.Start()
+    $p.WaitForExit(20000) | Out-Null
+    try { if (-not $p.HasExited) { $p.Kill() } } catch {}
+    try {
+        if (Test-Path $tmp) {
+            $v = (Get-Content $tmp -Raw).Trim()
+            Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+            if ($v -match '^[0-9]+\.[0-9]+\.[0-9]+') { return $Matches[0] }
+        }
+    } catch {}
+    return ''
+}
+
+$script:miSelfCheck.add_Click({
+    $script:miSelfStatus.Text = '检查中…'
+    $latest = Get-LatestTrayVersion
+    if (-not $latest) {
+        $script:miSelfStatus.Text = ('当前 v' + $script:TrayVersion)
+        $tray.BalloonTipTitle = 'DeepSeek Harness'
+        $tray.BalloonTipText = '检查更新失败（网络或 npm 不可用），详见日志'
+        $tray.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Warning
+        $tray.ShowBalloonTip(2500)
+        return
+    }
+    $script:miSelfStatus.Text = ('当前 v' + $script:TrayVersion + ' · 最新 v' + $latest)
+    if ((Compare-Version $latest $script:TrayVersion) -gt 0) {
+        $script:latestTrayVersion = $latest
+        $script:miSelfUpdate.Text = '更新到 v' + $latest
+        $script:miSelfUpdate.Enabled = $true
+        $tray.BalloonTipTitle = 'DeepSeek Harness'
+        $tray.BalloonTipText = ('托盘启动器有新版本 v' + $latest)
+        $tray.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Info
+        $tray.ShowBalloonTip(3000)
+        Write-TrayLog ('tray launcher update available: v' + $latest)
+    } else {
+        $script:miSelfUpdate.Enabled = $false
+        $tray.BalloonTipTitle = 'DeepSeek Harness'
+        $tray.BalloonTipText = ('已是最新版 v' + $script:TrayVersion)
+        $tray.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Info
+        $tray.ShowBalloonTip(2500)
+    }
+})
+
+$script:miSelfUpdate.add_Click({
+    $npm = Find-NpmCmd
+    if (-not $npm) {
+        $tray.BalloonTipTitle = 'DeepSeek Harness'
+        $tray.BalloonTipText = '未找到 npm，无法更新'
+        $tray.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Error
+        $tray.ShowBalloonTip(2500)
+        return
+    }
+    $cmdLine = '/c ""' + $npm + '" install -g dsh-tray-launcher >> "' + $outLog + '" 2>> "' + $errLog + '" "'
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $env:ComSpec
+    $psi.Arguments = $cmdLine
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    $p = New-Object System.Diagnostics.Process
+    $p.StartInfo = $psi
+    [void]$p.Start()
+    $p.WaitForExit()
+    if ($p.ExitCode -eq 0) {
+        $ver = $script:latestTrayVersion
+        if (-not $ver) { $ver = Get-LatestTrayVersion }
+        $script:miSelfStatus.Text = ('已更新 v' + $ver + '，重启托盘生效')
+        $script:miSelfUpdate.Enabled = $false
+        $tray.BalloonTipTitle = 'DeepSeek Harness'
+        $tray.BalloonTipText = ('托盘启动器已更新到 v' + $ver + '，重启托盘后生效')
+        $tray.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Info
+        $tray.ShowBalloonTip(3000)
+        Write-TrayLog ('tray launcher updated to v' + $ver)
+    } else {
+        $tray.BalloonTipTitle = 'DeepSeek Harness'
+        $tray.BalloonTipText = '更新失败（npm 退出码 ' + $p.ExitCode + '），详见日志'
+        $tray.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Error
+        $tray.ShowBalloonTip(3000)
+        Write-TrayLog ('tray launcher self-update failed, exit ' + $p.ExitCode)
+    }
+})
+$script:miSelf.DropDownItems.Add($script:miSelfStatus) | Out-Null
+$script:miSelf.DropDownItems.Add($script:miSelfCheck) | Out-Null
+$script:miSelf.DropDownItems.Add($script:miSelfUpdate) | Out-Null
+$menu.Items.Add($script:miSelf) | Out-Null
+
 # 托盘菜单：重启 Harness
 $miRestart = $menu.Items.Add('重启 Harness')
 $miRestart.add_Click({
@@ -662,6 +783,27 @@ $timer.add_Tick({
             Start-Process $url
             Write-TrayLog 'browser opened'
         }
+    }
+    # 启动后首次 tick 检查托盘启动器自身更新（只查一次；放在浏览器检测之后，
+    # 端口就绪开页面不受检查阻塞影响；图标已显示，短暂阻塞可接受）
+    if (-not $script:selfCheckDone) {
+        $script:selfCheckDone = $true
+        try {
+            $latest = Get-LatestTrayVersion
+            if ($latest -and (Compare-Version $latest $script:TrayVersion) -gt 0) {
+                $script:latestTrayVersion = $latest
+                $script:miSelfStatus.Text = ('当前 v' + $script:TrayVersion + ' · 最新 v' + $latest)
+                $script:miSelfUpdate.Text = '更新到 v' + $latest
+                $script:miSelfUpdate.Enabled = $true
+                $tray.BalloonTipTitle = 'DeepSeek Harness'
+                $tray.BalloonTipText = ('托盘启动器有新版本 v' + $latest + '（托盘菜单 → 更新启动器）')
+                $tray.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Info
+                $tray.ShowBalloonTip(4000)
+                Write-TrayLog ('tray launcher update available: v' + $latest)
+            } else {
+                Write-TrayLog ('tray launcher self-check: up to date (v' + $script:TrayVersion + ')')
+            }
+        } catch {}
     }
     if ($script:spawned -and $script:proc -and $script:proc.HasExited) {
         Write-TrayLog 'harness exited'
