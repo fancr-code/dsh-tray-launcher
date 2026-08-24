@@ -171,13 +171,49 @@ $lnk.Description = 'DeepSeek Harness 系统托盘启动器'
 $lnk.WindowStyle = 1
 $lnk.Save()
 
+# 内置用量仪表（dsh-plugin-usage-meter）集成：
+# 从随包依赖复制到安装目录，未注册时用官方插件命令注册进 web profile（自带 bundle 自注册）。
+$pluginVersion = ''
+$pluginDir = Join-Path $InstallDir 'plugins\usage-meter'
+try {
+    $bundledPlugin = Join-Path (Split-Path $PSScriptRoot -Parent) 'dsh-plugin-usage-meter'
+    if (-not (Test-Path (Join-Path $bundledPlugin 'package.json'))) {
+        # 仓库直装模式：退到 npm 全局依赖
+        try {
+            $g = & npm root -g 2>$null
+            if ($g) { $bundledPlugin = Join-Path $g 'dsh-plugin-usage-meter' }
+        } catch {}
+    }
+    if (Test-Path (Join-Path $bundledPlugin 'package.json')) {
+        New-Item -ItemType Directory -Path $pluginDir -Force | Out-Null
+        foreach ($item in @('lib', 'cordis.patch.yml', 'package.json', 'README.md', 'LICENSE')) {
+            $src = Join-Path $bundledPlugin $item
+            if (Test-Path $src) { Copy-Item $src $pluginDir -Recurse -Force }
+        }
+        $pluginVersion = (Get-Content (Join-Path $bundledPlugin 'package.json') -Raw | ConvertFrom-Json).version
+        $dump = (& $nodePath $dshBin --profile web --dump-config 2>&1 | Out-String)
+        if ($dump -match 'dsh-plugin-usage-meter') {
+            Write-Output ("用量仪表已在 profile 中注册，跳过（内置版本 v" + $pluginVersion + "）")
+        } else {
+            & $nodePath $dshBin plugin --profile web add $pluginDir 2>&1 | Out-Null
+            Write-Output ("用量仪表已注册: v" + $pluginVersion + "（重启 dsh web 后生效）")
+        }
+    } else {
+        Write-Output '未找到随包的用量仪表依赖，跳过集成（不影响托盘使用）。'
+    }
+} catch {
+    Write-Output ("用量仪表集成失败（不影响托盘使用）: " + $_.Exception.Message)
+}
+
 # 配置文件
 $cfg = @{
-    dshBin   = $dshBin
-    node     = $nodePath
-    url      = 'http://127.0.0.1:3080'
-    icon     = $iconSetting
-    shortcut = $lnkPath
+    dshBin        = $dshBin
+    node          = $nodePath
+    url           = 'http://127.0.0.1:3080'
+    icon          = $iconSetting
+    shortcut      = $lnkPath
+    pluginVersion = $pluginVersion
+    pluginDir     = $pluginDir
 }
 $cfg | ConvertTo-Json | Set-Content -Path (Join-Path $InstallDir 'dsh-tray.config.json') -Encoding UTF8
 

@@ -260,13 +260,67 @@ function Update-ShortcutIcon($icoPath) {
     }
 }
 
-function Save-IconConfig($value) {
+function Save-CfgValue($name, $value) {
     $cfg = $null
     try { $cfg = Get-Content $configPath -Raw | ConvertFrom-Json } catch {}
     if (-not $cfg) { $cfg = [pscustomobject]@{} }
-    $cfg | Add-Member -MemberType NoteProperty -Name 'icon' -Value $value -Force
+    $cfg | Add-Member -MemberType NoteProperty -Name $name -Value $value -Force
     $cfg | ConvertTo-Json | Set-Content -Path $configPath -Encoding UTF8
     $script:cfg = $cfg
+}
+
+function Save-IconConfig($value) {
+    Save-CfgValue 'icon' $value
+}
+
+# ---- 内置用量仪表（dsh-plugin-usage-meter）----
+function Compare-Version($a, $b) {
+    $pa = @(); $pb = @()
+    foreach ($x in ($a -split '\.')) { try { $pa += [int]$x } catch { $pa += 0 } }
+    foreach ($x in ($b -split '\.')) { try { $pb += [int]$x } catch { $pb += 0 } }
+    for ($i = 0; $i -lt 3; $i++) {
+        $va = if ($i -lt $pa.Count) { $pa[$i] } else { 0 }
+        $vb = if ($i -lt $pb.Count) { $pb[$i] } else { 0 }
+        if ($va -gt $vb) { return 1 }
+        if ($va -lt $vb) { return -1 }
+    }
+    return 0
+}
+
+function Find-BundledPlugin {
+    # 纯 PowerShell 定位随包依赖（npm 全局 node_modules 同级 / prefix / .npmrc）
+    $cands = @()
+    $cands += (Join-Path (Split-Path $PSScriptRoot -Parent) 'dsh-plugin-usage-meter')
+    if ($env:NPM_CONFIG_PREFIX) { $cands += (Join-Path $env:NPM_CONFIG_PREFIX 'dsh-plugin-usage-meter') }
+    foreach ($rc in @((Join-Path $env:USERPROFILE '.npmrc'))) {
+        if (Test-Path $rc) {
+            $m = Select-String -Path $rc -Pattern '^\s*prefix\s*=\s*(.+)\s*$' -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($m) {
+                $v = (($m.Lines | Select-Object -First 1) -split '=', 2)[1].Trim()
+                if ($v) { $cands += (Join-Path $v 'dsh-plugin-usage-meter') }
+            }
+        }
+    }
+    foreach ($c in $cands) {
+        if ($c -and (Test-Path (Join-Path $c 'package.json'))) { return $c }
+    }
+    return $null
+}
+
+function Run-DshPluginAdd($dir) {
+    # 隐藏执行 dsh plugin add（同路径幂等；路径变化则切换链接）
+    $cmdLine = '/c ""' + $node + '" "' + $bin + '" plugin --profile web add "' + $dir + '" >> "' + $outLog + '" 2>> "' + $errLog + '" "'
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $env:ComSpec
+    $psi.Arguments = $cmdLine
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    $p = New-Object System.Diagnostics.Process
+    $p.StartInfo = $psi
+    [void]$p.Start()
+    $p.WaitForExit()
+    Write-TrayLog ('dsh plugin add exited ' + $p.ExitCode)
+    return $p.ExitCode
 }
 
 function Apply-Icon($key, $icoPath) {
@@ -409,6 +463,59 @@ if ($shortcutForCheck) {
     $script:miAutostart.Checked = (Test-Path $startupCheck)
 }
 
+# 内置用量仪表：状态 + 一键更新
+$script:pluginVersion = Get-CfgValue 'pluginVersion' ''
+$script:miUsage = New-Object System.Windows.Forms.ToolStripMenuItem('用量仪表')
+$script:miUsageStatus = New-Object System.Windows.Forms.ToolStripMenuItem('未安装')
+$script:miUsageStatus.Enabled = $false
+$script:miUsageUpdate = New-Object System.Windows.Forms.ToolStripMenuItem('更新用量仪表')
+function Update-UsageStatusText {
+    $ver = $script:pluginVersion
+    if ($ver) { $script:miUsageStatus.Text = '当前 v' + $ver } else { $script:miUsageStatus.Text = '未安装' }
+}
+Update-UsageStatusText
+$script:miUsageUpdate.add_Click({
+    $bundled = Find-BundledPlugin
+    if (-not $bundled) {
+        $tray.BalloonTipTitle = 'DeepSeek Harness'
+        $tray.BalloonTipText = '未找到随包的用量仪表（npm 依赖缺失）'
+        $tray.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Warning
+        $tray.ShowBalloonTip(2500)
+        return
+    }
+    $newVer = ''
+    try { $newVer = (Get-Content (Join-Path $bundled 'package.json') -Raw | ConvertFrom-Json).version } catch {}
+    $pluginDir = Get-CfgValue 'pluginDir' (Join-Path $PSScriptRoot 'plugins\usage-meter')
+    try {
+        New-Item -ItemType Directory -Path $pluginDir -Force | Out-Null
+        foreach ($item in @('lib', 'cordis.patch.yml', 'package.json', 'README.md', 'LICENSE')) {
+            $src = Join-Path $bundled $item
+            if (Test-Path $src) { Copy-Item $src $pluginDir -Recurse -Force }
+        }
+        [void](Run-DshPluginAdd $pluginDir)
+        if ($newVer) {
+            Save-CfgValue 'pluginVersion' $newVer
+            Save-CfgValue 'pluginDir' $pluginDir
+            $script:pluginVersion = $newVer
+        }
+        Update-UsageStatusText
+        $tray.BalloonTipTitle = 'DeepSeek Harness'
+        $tray.BalloonTipText = ('用量仪表已更新到 v' + $newVer + '，请重启 Harness 生效（菜单 → 重启 Harness）')
+        $tray.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Info
+        $tray.ShowBalloonTip(3000)
+        Write-TrayLog ('usage meter updated to v' + $newVer)
+    } catch {
+        Write-TrayLog ('usage meter update failed: ' + $_.Exception.Message)
+        $tray.BalloonTipTitle = 'DeepSeek Harness'
+        $tray.BalloonTipText = '用量仪表更新失败，详见日志'
+        $tray.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Error
+        $tray.ShowBalloonTip(3000)
+    }
+})
+$script:miUsage.DropDownItems.Add($script:miUsageStatus) | Out-Null
+$script:miUsage.DropDownItems.Add($script:miUsageUpdate) | Out-Null
+$menu.Items.Add($script:miUsage) | Out-Null
+
 # 托盘菜单：重启 Harness
 $miRestart = $menu.Items.Add('重启 Harness')
 $miRestart.add_Click({
@@ -513,6 +620,21 @@ if ($already) {
         $tray.ShowBalloonTip(3000)
     }
 }
+
+# 用量仪表版本检查：随包依赖比已装版本新时提醒一次
+try {
+    $bundledNow = Find-BundledPlugin
+    if ($bundledNow) {
+        $bundledVer = (Get-Content (Join-Path $bundledNow 'package.json') -Raw | ConvertFrom-Json).version
+        if ($bundledVer -and $script:pluginVersion -and (Compare-Version $bundledVer $script:pluginVersion) -gt 0) {
+            $tray.BalloonTipTitle = 'DeepSeek Harness'
+            $tray.BalloonTipText = ('用量仪表有新版本 v' + $bundledVer + '（托盘菜单 → 用量仪表 → 更新）')
+            $tray.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Info
+            $tray.ShowBalloonTip(4000)
+            Write-TrayLog ('usage meter update available: v' + $bundledVer)
+        }
+    }
+} catch {}
 
 # ---- 轮询：端口就绪后打开浏览器；监视退出 ----
 $script:opened = $false
