@@ -136,7 +136,7 @@ if (-not $bin) {
 }
 
 # ---- 托盘模式 ----
-$script:TrayVersion = '1.2.1'
+$script:TrayVersion = '1.3.0'
 try {
     $pk = Join-Path $PSScriptRoot 'package.json'
     if (Test-Path $pk) { $pv = (Get-Content $pk -Raw | ConvertFrom-Json).version }
