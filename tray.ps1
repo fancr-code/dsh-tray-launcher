@@ -409,6 +409,30 @@ if ($shortcutForCheck) {
     $script:miAutostart.Checked = (Test-Path $startupCheck)
 }
 
+# 托盘菜单：重启 Harness
+$miRestart = $menu.Items.Add('重启 Harness')
+$miRestart.add_Click({
+    Write-TrayLog 'restart requested'
+    Stop-Harness
+    Start-Sleep -Seconds 2
+    try {
+        Start-HarnessProcess
+        $script:opened = $false   # 端口就绪后重新打开浏览器
+        $tray.BalloonTipTitle = 'DeepSeek Harness'
+        $tray.BalloonTipText = '正在重启…'
+        $tray.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Info
+        $tray.ShowBalloonTip(2000)
+    } catch {
+        Write-TrayLog ('restart failed: ' + $_.Exception.Message)
+        $tray.BalloonTipTitle = 'DeepSeek Harness'
+        $tray.BalloonTipText = '重启失败，详见日志'
+        $tray.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Error
+        $tray.ShowBalloonTip(3000)
+    }
+})
+$sepR = New-Object System.Windows.Forms.ToolStripSeparator
+$menu.Items.Add($sepR) | Out-Null
+
 $sep3 = New-Object System.Windows.Forms.ToolStripSeparator
 $menu.Items.Add($sep3) | Out-Null
 $miExit = $menu.Items.Add('退出')
@@ -447,6 +471,22 @@ $miExit.add_Click({
 })
 $tray.add_DoubleClick({ Start-Process $url })
 
+# ---- 启动 harness 进程（CreateNoWindow：从 API 层面禁止控制台）----
+function Start-HarnessProcess {
+    $cmdLine = '/c ""' + $node + '" "' + $bin + '" web >> "' + $outLog + '" 2>> "' + $errLog + '" "'
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $env:ComSpec
+    $psi.Arguments = $cmdLine
+    $psi.WorkingDirectory = $cwd
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    $script:proc = New-Object System.Diagnostics.Process
+    $script:proc.StartInfo = $psi
+    [void]$script:proc.Start()
+    $script:spawned = $true
+    Write-TrayLog ('harness started hidden, pid ' + $script:proc.Id)
+}
+
 # ---- 启动 harness（已运行则只挂托盘）----
 $script:spawned = $false
 $script:proc = $null
@@ -460,21 +500,7 @@ if ($already) {
     $tray.ShowBalloonTip(2500)
 } else {
     try {
-        # 启动 harness：用 CreateNoWindow（CREATE_NO_WINDOW）从 API 层面禁止控制台——
-        # 部分机器上 Start-Process -WindowStyle Hidden 会被忽略，导致黑窗。
-        # 经 cmd /c 中转以保留日志重定向（>> 追加，无缓冲区死锁）。
-        $cmdLine = '/c ""' + $node + '" "' + $bin + '" web >> "' + $outLog + '" 2>> "' + $errLog + '" "'
-        $psi = New-Object System.Diagnostics.ProcessStartInfo
-        $psi.FileName = $env:ComSpec
-        $psi.Arguments = $cmdLine
-        $psi.WorkingDirectory = $cwd
-        $psi.UseShellExecute = $false
-        $psi.CreateNoWindow = $true
-        $script:proc = New-Object System.Diagnostics.Process
-        $script:proc.StartInfo = $psi
-        [void]$script:proc.Start()
-        $script:spawned = $true
-        Write-TrayLog ('harness started hidden, pid ' + $script:proc.Id)
+        Start-HarnessProcess
         $tray.BalloonTipTitle = 'DeepSeek Harness'
         $tray.BalloonTipText = '正在启动…'
         $tray.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Info
