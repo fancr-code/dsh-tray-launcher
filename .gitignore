@@ -2,3 +2,5 @@ logs/
 dsh-tray.config.json
 *.log
 *.lnk
+debug/
+.*/
